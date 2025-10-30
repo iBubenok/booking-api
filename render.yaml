@@ -1,0 +1,22 @@
+# render.yaml — чертёж для Render (Blueprint)
+# Создаёт веб-сервис "booking-api" и Postgres "booking-db"
+
+services:
+  - type: web
+    name: booking-api
+    runtime: node
+    plan: starter
+    branch: main
+    buildCommand: "npm ci"
+    startCommand: "node server.js"
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: booking-db
+          property: connectionString
+
+databases:
+  - name: booking-db
