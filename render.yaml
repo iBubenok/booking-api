@@ -1,6 +1,3 @@
-# render.yaml — чертёж для Render (Blueprint)
-# Создаёт веб-сервис "booking-api" и Postgres "booking-db"
-
 services:
   - type: web
     name: booking-api
