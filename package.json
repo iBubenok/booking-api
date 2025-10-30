@@ -1,0 +1,21 @@
+{
+  "name": "booking-api",
+  "version": "1.0.0",
+  "description": "Seat booking demo (one user - one booking, no overbooking)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"(no tests yet)\" && exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "js-yaml": "^4.1.0",
+    "pg": "^8.16.3",
+    "swagger-ui-express": "^5.0.1"
+  }
+}

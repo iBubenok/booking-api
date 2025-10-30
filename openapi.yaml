@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: Booking API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/bookings/reserve:
+    post:
+      summary: Reserve a seat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_id, user_id]
+              properties:
+                event_id:
+                  type: integer
+                  example: 1
+                user_id:
+                  type: string
+                  example: user123
+      responses:
+        '201':
+          description: Booking created
+        '400':
+          description: Invalid payload
+        '404':
+          description: Event not found
+        '409':
+          description: Duplicate booking or sold out
+        '500':
+          description: Internal error
