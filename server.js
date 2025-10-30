@@ -2,6 +2,7 @@
 require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
 const yaml = require('js-yaml');
 const swaggerUi = require('swagger-ui-express');
 const { Pool } = require('pg');
@@ -10,9 +11,9 @@ const app = express();
 app.use(express.json());
 
 // --- Swagger UI (/docs) ---
-let openapiDoc = null;
+const openapiPath = path.resolve(__dirname, './openapi.yaml');
 try {
-  openapiDoc = yaml.load(fs.readFileSync('./openapi.yaml', 'utf8'));
+  const openapiDoc = yaml.load(fs.readFileSync(openapiPath, 'utf8'));
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDoc));
 } catch (e) {
   // Если файла нет — просто не поднимаем /docs, логируем предупреждение
@@ -24,9 +25,40 @@ const hasDb = !!process.env.DATABASE_URL;
 const pool = hasDb ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
 
 // Healthcheck — Render будет пинговать этот путь
-app.get('/health', async (req, res) => {
+app.get('/health', (req, res) => {
   // Лёгкий health без обращения к БД: достаточно 200 OK
   res.json({ status: 'ok', db: hasDb ? 'configured' : 'not-configured' });
+});
+
+// Домашняя страница: короткая "визитка" с ссылками
+app.get('/', (req, res) => {
+  res.type('html').send(`
+    <!doctype html>
+    <html lang="ru">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>Booking API</title>
+      <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; line-height: 1.5; }
+        code, pre { background: #f5f5f5; padding: 0.2rem 0.4rem; border-radius: 6px; }
+        .links a { display: inline-block; margin-right: 1rem; }
+        .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; max-width: 760px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>Booking API</h1>
+        <p>Демо-сервис для бронирования места на событие: один пользователь — одна бронь, без овербукинга.</p>
+        <p class="links">
+          <a href="/docs">➡ Swagger UI (/docs)</a>
+          <a href="/health">❤️ Health (/health)</a>
+        </p>
+        <p>Основной эндпоинт: <code>POST /api/bookings/reserve</code></p>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 // --- Бронирование ---
