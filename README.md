@@ -106,7 +106,7 @@ curl -i -X POST https://booking-api-mwff.onrender.com/api/bookings/reserve \
     * `409 Conflict` — повторная бронь того же пользователя **или** мест больше нет
     * `503 Service Unavailable` — БД не настроена (`DATABASE_URL` не задан)
     * `500 Internal Error` — непредвиденная ошибка
-* **Ограничение частоты**: на `POST /api/bookings/reserve` действует rate-limit **30 запросов/мин** на IP (помогает от случайных/скриптовых «бурстов»).
+* **Ограничение частоты**: на `POST /api/bookings/reserve` действует rate-limit **30 запросов/мин** на IP.
 
 ---
 
@@ -124,6 +124,8 @@ curl -i -X POST https://booking-api-mwff.onrender.com/api/bookings/reserve \
 
 ## Быстрый старт (локально)
 
+**Требования:** Node.js 18+; доступная PostgreSQL (или облачная строка подключения).
+
 1. Установите зависимости:
 
    ```bash
@@ -134,7 +136,7 @@ curl -i -X POST https://booking-api-mwff.onrender.com/api/bookings/reserve \
    ```dotenv
    PORT=3000
    DATABASE_URL=postgres://user:password@host:5432/dbname
-   # Включайте SSL для облачных БД (Neon/Render и т.п.)
+   # Для облачных БД (Neon/Render) включите SSL:
    DATABASE_SSL=true
    ```
 3. Запуск:
@@ -150,6 +152,11 @@ curl -i -X POST https://booking-api-mwff.onrender.com/api/bookings/reserve \
 ### Миграции
 
 Выполните файл `db/migrations.sql` в вашей БД (создаёт таблицы, индексы и сид-данные).
+Пример через `psql`:
+
+```bash
+psql "postgresql://USER:[email protected]:PORT/DB?sslmode=require" -f db/migrations.sql
+```
 
 ---
 
@@ -159,7 +166,7 @@ curl -i -X POST https://booking-api-mwff.onrender.com/api/bookings/reserve \
 .
 ├─ db/
 │  └─ migrations.sql        # таблицы, индексы, сиды
-├─ __tests__/               # (опц.) автотесты
+├─ __tests__/               # автотесты
 ├─ openapi.yaml             # спецификация OpenAPI для Swagger UI
 ├─ server.js                # запуск приложения, graceful shutdown
 ├─ package.json
