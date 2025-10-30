@@ -1,10 +1,17 @@
 name: CI
 
 on:
-  push:
-    branches: [ "**" ]
+  # Запускаем проверки для pull request'ов, целевая ветка — main
   pull_request:
-    branches: [ "**" ]
+    branches: [ "main" ]
+  # И дополнительно — для пушей в main (после merge), чтобы проверить уже то, что влито
+  push:
+    branches: [ "main" ]
+
+# Если быстро прилетает новый коммит в ту же ветку/PR — отменяем предыдущий прогон
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref || github.head_ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
