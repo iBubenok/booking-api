@@ -16,12 +16,18 @@ const { Pool } = require('pg');
 
 const app = express();
 
+// Если приложение работает за прокси (например, Render),
+// эта настройка позволит корректно определять IP клиента (для rate limit и логов).
+app.set('trust proxy', 1);
+
 // ---------- Security & DX middleware ----------
 app.disable('x-powered-by');
-app.use(helmet({
-  // чтобы Swagger UI корректно грузил ассеты
-  crossOriginResourcePolicy: { policy: 'cross-origin' }
-}));
+app.use(
+  helmet({
+    // чтобы Swagger UI корректно грузил ассеты
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 app.use(cors());
 app.use(express.json({ limit: '32kb' }));
 app.use(morgan('combined'));
@@ -31,7 +37,7 @@ const openapiPath = path.resolve(__dirname, './openapi.yaml');
 try {
   const openapiDoc = yaml.load(fs.readFileSync(openapiPath, 'utf8'));
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDoc));
-} catch (e) {
+} catch {
   // Если файла нет — просто не поднимаем /docs, логируем предупреждение
   console.warn('openapi.yaml not found or invalid. /docs will be unavailable.');
 }
@@ -41,7 +47,7 @@ const hasDb = !!process.env.DATABASE_URL;
 let pool = null;
 if (hasDb) {
   const pgConfig = { connectionString: process.env.DATABASE_URL };
-  // Включаем SSL при необходимости (например, на Neon/облачных БД)
+  // Включаем SSL при необходимости (например, Neon/облачные БД)
   if ((process.env.DATABASE_SSL || '').toLowerCase() === 'true') {
     pgConfig.ssl = { rejectUnauthorized: false };
   }
@@ -100,6 +106,8 @@ app.get('/', (req, res) => {
 const reserveLimiter = rateLimit({
   windowMs: 60_000, // 1 минута
   max: 30,          // не более 30 попыток бронирования с одного IP в минуту
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // ---------- Booking ----------
@@ -115,11 +123,15 @@ app.post('/api/bookings/reserve', reserveLimiter, async (req, res) => {
   const uid = String(user_id || '').trim();
 
   if (!Number.isInteger(eid) || eid <= 0 || uid.length === 0) {
-    return res.status(400).json({ error: 'Invalid payload: {event_id(int>0), user_id(non-empty string)} required' });
+    return res
+      .status(400)
+      .json({ error: 'Invalid payload: {event_id(int>0), user_id(non-empty string)} required' });
   }
   // Базовая нормализация user_id, чтобы исключить мусор/слишком длинные строки
   if (uid.length > 128 || !/^[\w\-.:@]+$/.test(uid)) {
-    return res.status(400).json({ error: 'Invalid user_id format (max 128, allowed: letters/digits/_ - . : @)' });
+    return res
+      .status(400)
+      .json({ error: 'Invalid user_id format (max 128, allowed: letters/digits/_ - . : @)' });
   }
 
   let client;
@@ -171,11 +183,13 @@ app.post('/api/bookings/reserve', reserveLimiter, async (req, res) => {
     // (опционально можно добавить Location-заголовок на /api/bookings/:id)
     res.status(201).json({
       booking: ins.rows[0],
-      seats_left: totalSeats - (taken + 1)
+      seats_left: totalSeats - (taken + 1),
     });
   } catch (err) {
     // Безопасно пытаемся откатить
-    try { if (client) await client.query('ROLLBACK'); } catch (_) {}
+    try {
+      if (client) await client.query('ROLLBACK');
+    } catch {}
     // Нарушение уникальности (если в БД есть UNIQUE (event_id, user_id) и случилась гонка)
     if (err && err.code === '23505') {
       return res.status(409).json({ error: 'User already booked this event' });
@@ -197,16 +211,25 @@ app.use((req, res, next) => {
 const port = Number(process.env.PORT) || 3000;
 const host = '0.0.0.0';
 
-const server = app.listen(port, host, () => {
-  console.log(`Server listening on http://${host}:${port}`);
-});
+let server = null;
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(port, host, () => {
+    console.log(`Server listening on http://${host}:${port}`);
+  });
+}
 
 async function shutdown(signal) {
   console.log(`\n${signal}: shutting down...`);
-  try { await pool?.end(); } catch (_) {}
-  server.close(() => process.exit(0));
+  try {
+    await pool?.end();
+  } catch {}
+  if (server) {
+    server.close(() => process.exit(0));
+  } else {
+    process.exit(0);
+  }
 }
-['SIGTERM', 'SIGINT'].forEach(s => process.on(s, () => shutdown(s)));
+['SIGTERM', 'SIGINT'].forEach((s) => process.on(s, () => shutdown(s)));
 
 // Логирование неожиданных ошибок — чтобы не падать молча
 process.on('unhandledRejection', (reason) => {
@@ -215,3 +238,6 @@ process.on('unhandledRejection', (reason) => {
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });
+
+// Экспортируем для тестов (и при необходимости — для интеграции)
+module.exports = { app, server };
