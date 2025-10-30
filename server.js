@@ -1,7 +1,7 @@
 // server.js
 "use strict";
 
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const express = require('express');
 const fs = require('fs');
